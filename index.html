@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fessy 失物招领</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        /* 头部 - 使用学校酒红色 */
+        .header {
+            background: #7B1F3A;
+            color: white;
+            padding: 1rem;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+        
+        .header p {
+            font-size: 0.9rem;
+            opacity: 0.9;
+            margin-top: 0.25rem;
+        }
+        
+        /* 筛选栏 */
+        .filter-bar {
+            background: white;
+            padding: 1rem;
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            justify-content: center;
+            border-bottom: 1px solid #e0e0e0;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        
+        .filter-btn {
+            padding: 0.5rem 1rem;
+            border: 2px solid #7B1F3A;
+            background: white;
+            color: #7B1F3A;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.3s;
+        }
+        
+        .filter-btn:hover, .filter-btn.active {
+            background: #7B1F3A;
+            color: white;
+        }
+        
+        /* 发布按钮 */
+        .fab {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            width: 60px;
+            height: 60px;
+            background: #7B1F3A;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            font-size: 2rem;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(123, 31, 58, 0.4);
+            transition: transform 0.2s;
+            z-index: 100;
+        }
+        
+        .fab:hover {
+            transform: scale(1.1);
+        }
+        
+        /* 列表容器 */
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+        
+        /* 物品卡片 */
+        .item-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            display: flex;
+            gap: 1rem;
+            transition: transform 0.2s;
+        }
+        
+        .item-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+        }
+        
+        .item-card.resolved {
+            opacity: 0.6;
+            background: #f9f9f9;
+        }
+        
+        .item-image {
+            width: 100px;
+            height: 100px;
+            border-radius: 8px;
+            object-fit: cover;
+            background: #f0f0f0;
+            flex-shrink: 0;
+        }
+        
+        .item-image.placeholder {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #999;
+            font-size: 2rem;
+        }
+        
+        .item-content {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .item-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+            flex-wrap: wrap;
+        }
+        
+        .item-type {
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        
+        .item-type.lost {
+            background: #ffebee;
+            color: #c62828;
+        }
+        
+        .item-type.found {
+            background: #e3f2fd;
+            color: #1565c0;
+        }
+        
+        .item-status {
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            margin-left: auto;
+        }
+        
+        .item-status.open {
+            background: #fff3e0;
+            color: #ef6c00;
+        }
+        
+        .item-status.closed {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+        
+        .item-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+            color: #222;
+        }
+        
+        .item-desc {
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 0.5rem;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        
+        .item-meta {
+            display: flex;
+            gap: 1rem;
+            font-size: 0.8rem;
+            color: #888;
+            flex-wrap: wrap;
+        }
+        
+        .item-meta span {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+        
+        /* 模态框 */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+        
+        .modal.active {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 16px;
+            width: 100%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+            animation: slideUp 0.3s;
+        }
+        
+        @keyframes slideUp {
+            from { transform: translateY(50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        
+        .modal-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .modal-header h2 {
+            font-size: 1.25rem;
+        }
+        
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #666;
+        }
+        
+        .modal-body {
+            padding: 1.5rem;
+        }
+        
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+        
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+        
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #7B1F3A;
+        }
+        
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+        
+        .radio-group {
+            display: flex;
+            gap: 1rem;
+        }
+        
+        .radio-label {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            cursor: pointer;
+            padding: 0.5rem 1rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            transition: all 0.3s;
+        }
+        
+        .radio-label:hover {
+            border-color: #7B1F3A;
+        }
+        
+        .radio-label input:checked + span {
+            color: #7B1F3A;
+            font-weight: 600;
+        }
+        
+        .radio-label:has(input:checked) {
+            border-color: #7B1F3A;
+            background: #fdf2f5;
+        }
+        
+        .submit-btn {
+            width: 100%;
+            padding: 1rem;
+            background: #7B1F3A;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        
+        .submit-btn:hover {
+            background: #5a1830;
+        }
+        
+        .submit-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        /* 加载状态 */
+        .loading {
+            text-align: center;
+            padding: 3rem;
+            color: #666;
+        }
+        
+        .empty {
+            text-align: center;
+            padding: 3rem;
+            color: #888;
+        }
+        
+        .empty-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+        }
+        
+        /* 图片上传提示 */
+        .upload-tip {
+            font-size: 0.8rem;
+            color: #666;
+            margin-top: 0.25rem;
+        }
+        
+        /* 详情模态框 */
+        .detail-image {
+            width: 100%;
+            max-height: 300px;
+            object-fit: cover;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+        }
+        
+        .detail-actions {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+        
+        .detail-btn {
+            flex: 1;
+            padding: 0.75rem;
+            border: 2px solid #7B1F3A;
+            background: white;
+            color: #7B1F3A;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+        
+        .detail-btn:hover {
+            background: #7B1F3A;
+            color: white;
+        }
+        
+        .detail-btn.primary {
+            background: #7B1F3A;
+            color: white;
+        }
+        
+        .detail-btn.primary:hover {
+            background: #5a1830;
+        }
+        
+        /* 提示消息 */
+        .toast {
+            position: fixed;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: #333;
+            color: white;
+            padding: 1rem 2rem;
+            border-radius: 8px;
+            opacity: 0;
+            transition: all 0.3s;
+            z-index: 2000;
+        }
+        
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <!-- 头部 -->
+    <header class="header">
+        <h1>🔍 Fessy 失物招领</h1>
+        <p>The Fessenden School Lost & Found</p>
+    </header>
+    
+    <!-- 筛选栏 -->
+    <div class="filter-bar">
+        <button class="filter-btn active" onclick="filterItems('all')">全部</button>
+        <button class="filter-btn" onclick="filterItems('丢失')">🔴 丢失</button>
+        <button class="filter-btn" onclick="filterItems('捡到')">🔵 捡到</button>
+        <button class="filter-btn" onclick="filterItems('open')">进行中</button>
+    </div>
+    
+    <!-- 列表容器 -->
+    <div class="container" id="itemList">
+        <div class="loading">加载中...</div>
+    </div>
+    
+    <!-- 发布按钮 -->
+    <button class="fab" onclick="openModal()">+</button>
+    
+    <!-- 发布模态框 -->
+    <div class="modal" id="postModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>发布信息</h2>
+                <button class="close-btn" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="postForm" onsubmit="submitForm(event)">
+                    <div class="form-group">
+                        <label>类型</label>
+                        <div class="radio-group">
+                            <label class="radio-label">
+                                <input type="radio" name="type" value="丢失" checked hidden>
+                                <span>🔴 我丢失了物品</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="type" value="捡到" hidden>
+                                <span>🔵 我捡到了物品</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>物品名称 *</label>
+                        <input type="text" name="item" placeholder="例如：蓝色水壶、黑色钱包" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>详细描述</label>
+                        <textarea name="description" placeholder="品牌、特征、时间等详细信息"></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>地点 *</label>
+                        <input type="text" name="location" placeholder="例如：食堂、体育馆、图书馆" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>照片链接</label>
+                        <input type="url" name="photo" placeholder="https://...">
+                        <p class="upload-tip">💡 提示：将照片上传到 Google Drive 或 Imgur，复制分享链接</p>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>联系方式 *</label>
+                        <input type="text" name="contact" placeholder="微信、邮箱或电话" required>
+                    </div>
+                    
+                    <button type="submit" class="submit-btn" id="submitBtn">发布</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 详情模态框 -->
+    <div class="modal" id="detailModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="detailTitle">物品详情</h2>
+                <button class="close-btn" onclick="closeDetail()">&times;</button>
+            </div>
+            <div class="modal-body" id="detailContent">
+                <!-- 动态填充 -->
+            </div>
+        </div>
+    </div>
+    
+    <!-- 提示消息 -->
+    <div class="toast" id="toast"></div>
+    
+    <script>
+        // ==================== 配置 ====================
+        const API_URL = '你的 Google Apps Script Web 应用 URL';
+        
+        // ==================== 状态 ====================
+        let allItems = [];
+        let currentFilter = 'all';
+        
+        // ==================== 初始化 ====================
+        document.addEventListener('DOMContentLoaded', loadItems);
+        
+        // ==================== 数据加载 ====================
+        async function loadItems() {
+            try {
+                const response = await fetch(API_URL);
+                const data = await response.json();
+                
+                if (data.success) {
+                    allItems = data.items;
+                    renderItems();
+                } else {
+                    showError('加载失败');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('itemList').innerHTML = `
+                    <div class="empty">
+                        <div class="empty-icon">⚠️</div>
+                        <p>加载失败，请检查网络连接</p>
+                        <button onclick="loadItems()" style="margin-top:1rem;padding:0.5rem 1rem;">重试</button>
+                    </div>
+                `;
+            }
+        }
+        
+        // ==================== 渲染列表 ====================
+        function renderItems() {
+            const container = document.getElementById('itemList');
+            
+            // 筛选
+            let filtered = allItems;
+            if (currentFilter === '丢失' || currentFilter === '捡到') {
+                filtered = allItems.filter(item => item.type === currentFilter);
+            } else if (currentFilter === 'open') {
+                filtered = allItems.filter(item => item.status === '寻找中');
+            }
+            
+            // 空状态
+            if (filtered.length === 0) {
+                container.innerHTML = `
+                    <div class="empty">
+                        <div class="empty-icon">📭</div>
+                        <p>暂无${currentFilter === 'all' ? '' : '相关'}信息</p>
+                        <p style="font-size:0.9rem;margin-top:0.5rem;">点击右下角 + 发布第一条</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            // 渲染卡片
+            container.innerHTML = filtered.map(item => `
+                <div class="item-card ${item.status === '已解决' ? 'resolved' : ''}" onclick="showDetail('${item.id}')">
+                    ${item.photo ? 
+                        `<img src="${item.photo}" class="item-image" alt="${item.item}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : 
+                        ''
+                    }
+                    <div class="item-image placeholder" style="${item.photo ? 'display:none' : ''}">
+                        ${item.type === '丢失' ? '🔴' : '🔵'}
+                    </div>
+                    
+                    <div class="item-content">
+                        <div class="item-header">
+                            <span class="item-type ${item.type === '丢失' ? 'lost' : 'found'}">
+                                ${item.type}
+                            </span>
+                            <span class="item-status ${item.status === '寻找中' ? 'open' : 'closed'}">
+                                ${item.status}
+                            </span>
+                        </div>
+                        
+                        <h3 class="item-title">${escapeHtml(item.item)}</h3>
+                        <p class="item-desc">${escapeHtml(item.description || '暂无描述')}</p>
+                        
+                        <div class="item-meta">
+                            <span>📍 ${escapeHtml(item.location)}</span>
+                            <span>🕐 ${formatTime(item.time)}</span>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        // ==================== 筛选 ====================
+        function filterItems(type) {
+            currentFilter = type;
+            
+            // 更新按钮状态
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.textContent.includes(type) || (type === 'all' && btn.textContent === '全部') || (type === 'open' && btn.textContent === '进行中')) {
+                    btn.classList.add('active');
+                }
+            });
+            
+            renderItems();
+        }
+        
+        // ==================== 发布功能 ====================
+        function openModal() {
+            document.getElementById('postModal').classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+        
+        function closeModal() {
+            document.getElementById('postModal').classList.remove('active');
+            document.body.style.overflow = '';
+            document.getElementById('postForm').reset();
+        }
+        
+        async function submitForm(e) {
+            e.preventDefault();
+            
+            const btn = document.getElementById('submitBtn');
+            btn.disabled = true;
+            btn.textContent = '发布中...';
+            
+            const formData = new FormData(e.target);
+            const data = {
+                type: formData.get('type'),
+                item: formData.get('item'),
+                description: formData.get('description'),
+                location: formData.get('location'),
+                photo: formData.get('photo'),
+                contact: formData.get('contact')
+            };
+            
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showToast('发布成功！');
+                    closeModal();
+                    loadItems(); // 刷新列表
+                } else {
+                    showToast('发布失败，请重试');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showToast('网络错误，请重试');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '发布';
+            }
+        }
+        
+        // ==================== 详情功能 ====================
+        function showDetail(id) {
+            const item = allItems.find(i => i.id === id);
+            if (!item) return;
+            
+            const modal = document.getElementById('detailModal');
+            const content = document.getElementById('detailContent');
+            
+            document.getElementById('detailTitle').textContent = item.item;
+            
+            content.innerHTML = `
+                ${item.photo ? `<img src="${item.photo}" class="detail-image" alt="${item.item}" onerror="this.style.display='none'">` : ''}
+                
+                <div style="margin-bottom:1rem;">
+                    <span class="item-type ${item.type === '丢失' ? 'lost' : 'found'}" style="font-size:1rem;padding:0.5rem 1rem;">
+                        ${item.type}
+                    </span>
+                    <span class="item-status ${item.status === '寻找中' ? 'open' : 'closed'}" style="font-size:0.9rem;margin-left:0.5rem;">
+                        ${item.status}
+                    </span>
+                </div>
+                
+                <div style="margin-bottom:1rem;">
+                    <h4 style="color:#666;font-size:0.9rem;margin-bottom:0.25rem;">详细描述</h4>
+                    <p>${escapeHtml(item.description || '暂无描述')}</p>
+                </div>
+                
+                <div style="margin-bottom:1rem;">
+                    <h4 style="color:#666;font-size:0.9rem;margin-bottom:0.25rem;">地点</h4>
+                    <p>📍 ${escapeHtml(item.location)}</p>
+                </div>
+                
+                <div style="margin-bottom:1rem;">
+                    <h4 style="color:#666;font-size:0.9rem;margin-bottom:0.25rem;">发布时间</h4>
+                    <p>🕐 ${item.time}</p>
+                </div>
+                
+                <div style="margin-bottom:1.5rem;">
+                    <h4 style="color:#666;font-size:0.9rem;margin-bottom:0.25rem;">联系方式</h4>
+                    <p style="font-size:1.1rem;color:#7B1F3A;font-weight:600;">${escapeHtml(item.contact)}</p>
+                </div>
+                
+                <div class="detail-actions">
+                    ${item.status === '寻找中' ? 
+                        `<button class="detail-btn primary" onclick="resolveItem('${item.id}')">✓ 标记为已解决</button>` : 
+                        `<button class="detail-btn" disabled>已解决</button>`
+                    }
+                    <button class="detail-btn" onclick="closeDetail()">关闭</button>
+                </div>
+            `;
+            
+            modal.classList.add('active');
+        }
+        
+        function closeDetail() {
+            document.getElementById('detailModal').classList.remove('active');
+        }
+        
+        // ==================== 标记已解决 ====================
+        async function resolveItem(id) {
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'PUT',
+                    body: JSON.stringify({ id: id })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showToast('已标记为已解决！');
+                    closeDetail();
+                    loadItems();
+                } else {
+                    showToast('操作失败，请重试');
+                }
+            } catch (error) {
+                showToast('网络错误');
+            }
+        }
+        
+        // ==================== 工具函数 ====================
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        function formatTime(timeStr) {
+            if (!timeStr) return '';
+            const date = new Date(timeStr);
+            const now = new Date();
+            const diff = (now - date) / 1000; // 秒
+            
+            if (diff < 60) return '刚刚';
+            if (diff < 3600) return Math.floor(diff / 60) + '分钟前';
+            if (diff < 86400) return Math.floor(diff / 3600) + '小时前';
+            if (diff < 604800) return Math.floor(diff / 86400) + '天前';
+            
+            return date.toLocaleDateString('zh-CN');
+        }
+        
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.add('show');
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+        
+        // 点击模态框外部关闭
+        document.querySelectorAll('.modal').forEach(modal => {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    if (modal.id === 'postModal') closeModal();
+                    if (modal.id === 'detailModal') closeDetail();
+                }
+            });
+        });
+    </script>
+</body>
+</html>
